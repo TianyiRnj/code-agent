@@ -1,0 +1,46 @@
+project: ./
+goal: ""
+model: claude-opus-4-7
+
+# safe | balanced | full-auto  (default: balanced)
+# Each mode provides preset defaults; fields below override the preset.
+mode: balanced
+
+workspace:
+  root: ./
+  # writable_paths: leave empty to allow any path inside root.
+  # Uncomment to restrict:
+  # writable_paths:
+  #   - src/**
+  #   - tests/**
+  #   - docs/**
+  blocked_paths:
+    - .env
+    - .env.*
+    - secrets/**
+    - ~/.ssh/**
+    - ~/.aws/**
+    - /etc/**
+    - /System/**
+    - /usr/**
+
+# Capabilities inherit from the mode preset; override individual values here.
+# Accepted values: true | false | confirm
+# capabilities:
+#   delete_files: confirm
+#   install_dependencies: confirm
+#   network_access: confirm
+
+# commands:
+#   deny:
+#     - sudo
+#     - rm -rf
+
+# approvals:
+#   require_for:
+#     - delete_file
+#     - dependency_change
+
+git:
+  auto_checkpoint: true
+  checkpoint_prefix: "chkpt"

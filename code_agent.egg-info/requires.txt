@@ -1,0 +1,8 @@
+anthropic
+pyyaml
+
+[dev]
+pytest
+ruff
+mypy
+types-PyYAML
