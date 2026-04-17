@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -153,13 +154,27 @@ class PolicyGuard:
 
 
 def _path_matches(resolved: Path, pattern: str) -> bool:
-    """Return True if resolved path matches a blocked_paths-style pattern."""
+    """Return True if resolved path matches a blocked_paths-style pattern.
+
+    Absolute patterns (starting with / or ~) are matched against the full path.
+    Relative patterns like 'secrets/**' match any directory component of the path.
+    Simple name patterns like '.env.*' match the filename only.
+    """
     expanded_pat = str(Path(pattern).expanduser())
     path_str = str(resolved)
 
     if expanded_pat.endswith("/**"):
         prefix = expanded_pat[:-3]
-        return path_str == prefix or path_str.startswith(prefix + "/")
+        if prefix.startswith("/"):
+            # Absolute prefix: path must start with it.
+            return path_str == prefix or path_str.startswith(prefix + "/")
+        # Relative prefix (e.g. "secrets"): match any directory component.
+        return (
+            path_str == prefix
+            or path_str.startswith(prefix + "/")
+            or ("/" + prefix + "/") in path_str
+            or path_str.endswith("/" + prefix)
+        )
 
     if "/" in expanded_pat or expanded_pat.startswith("~"):
         return fnmatch.fnmatch(path_str, expanded_pat)
@@ -198,6 +213,10 @@ def _cmd_contains(cmd: str, pattern: str) -> bool:
     lower_pat = pattern.lower()
 
     if " | " not in lower_pat:
+        if " " not in lower_pat:
+            # Single-token deny pattern: use word-boundary matching so that
+            # "dd" blocks the dd command but not "yarn add" or "poetry add".
+            return bool(re.search(r"(?<!\w)" + re.escape(lower_pat) + r"(?!\w)", lower_cmd))
         return lower_pat in lower_cmd
 
     cmd_stages = [s.strip() for s in lower_cmd.split("|")]

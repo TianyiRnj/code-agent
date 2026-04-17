@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -27,7 +28,18 @@ def main() -> None:
         default="task.yaml",
         help="Path to task.yaml config file (default: task.yaml)",
     )
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging verbosity (default: WARNING)",
+    )
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(levelname)s  %(name)s  %(message)s",
+    )
 
     config_path = Path(args.config)
     config = TaskConfig.from_yaml(config_path) if config_path.exists() else TaskConfig()
@@ -37,12 +49,12 @@ def main() -> None:
         print("error: no goal specified (use --goal or set goal in task.yaml)", file=sys.stderr)
         sys.exit(1)
 
-    # Agent.run() will be wired up when core.py is implemented.
-    print(f"project : {config.project}")
-    print(f"goal    : {config.goal}")
-    print(f"model   : {config.model}")
-    print(f"mode    : {config.mode.value}")
-    print("(agent loop not yet implemented)")
+    # Import here so the CLI starts up without requiring ANTHROPIC_API_KEY
+    # when --help is used.
+    from agent.core import Agent  # noqa: PLC0415
+
+    agent = Agent(config)
+    sys.exit(agent.run())
 
 
 if __name__ == "__main__":
