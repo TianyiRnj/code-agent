@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -10,6 +11,9 @@ from typing import Any, Literal, Union
 import yaml
 
 CapabilityValue = Union[bool, Literal["confirm"]]
+ANTHROPIC_MODEL_ENV = "ANTHROPIC_MODEL"
+DEFAULT_MODEL = "claude-opus-4-7"
+DEFAULT_DOTENV_PATH = ".env"
 
 
 class Mode(str, Enum):
@@ -98,7 +102,7 @@ class GitConfig:
 class TaskConfig:
     project: str = "./"
     goal: str = ""
-    model: str = "claude-opus-4-7"
+    model: str = DEFAULT_MODEL
     mode: Mode = Mode.BALANCED
     workspace: WorkspaceConfig = field(default_factory=WorkspaceConfig)
     capabilities: Capabilities = field(default_factory=Capabilities)
@@ -143,6 +147,37 @@ class TaskConfig:
                 self.mode = Mode(value)
             elif hasattr(self, key):
                 setattr(self, key, value)
+
+    def effective_model(self) -> str:
+        """Return the model selected for API calls, preferring ANTHROPIC_MODEL."""
+        return os.environ.get(ANTHROPIC_MODEL_ENV, self.model)
+
+
+def load_env_file(path: str | Path = DEFAULT_DOTENV_PATH) -> None:
+    """Load KEY=VALUE pairs from a .env file without overriding existing variables."""
+    env_path = Path(path)
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+
+        os.environ[key] = _clean_env_value(value)
+
+
+def _clean_env_value(value: str) -> str:
+    """Remove surrounding whitespace and simple matching quotes from an env value."""
+    cleaned = value.strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {"'", '"'}:
+        return cleaned[1:-1]
+    return cleaned
 
 
 # ---------------------------------------------------------------------------

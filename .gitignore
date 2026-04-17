@@ -19,12 +19,16 @@ build/
 .mypy_cache/
 .ruff_cache/
 
+# Editor settings
+.vscode/
+
 # Agent runtime state
 .agent_state.json
 
 # Secrets / env
 .env
 .env.*
+!.env.example
 secrets/
 
 # macOS

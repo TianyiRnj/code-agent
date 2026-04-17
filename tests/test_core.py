@@ -7,7 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from agent.config import Mode, _preset
-from agent.core import Agent, _extract_text, _fmt_args, _serialise
+from agent.core import Agent, _anthropic_client_from_env, _extract_text, _fmt_args, _serialise
 
 # ---------------------------------------------------------------------------
 # Helpers to build mock API responses
@@ -55,6 +55,25 @@ def test_run_returns_0_on_success(tmp_path: Path) -> None:
         code = agent.run()
 
     assert code == 0
+
+
+def test_anthropic_client_uses_api_key_env(monkeypatch: Any) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-api-key")
+
+    with patch("agent.core.anthropic.Anthropic") as client_class:
+        _anthropic_client_from_env()
+
+    client_class.assert_called_once_with(api_key="test-api-key")
+
+
+def test_call_api_uses_model_env(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-from-env")
+    agent = _make_agent(tmp_path)
+    agent._client = MagicMock()
+
+    agent._call_api("system prompt")
+
+    assert agent._client.messages.create.call_args.kwargs["model"] == "claude-from-env"
 
 
 def test_run_returns_0_and_marks_step_done(tmp_path: Path) -> None:

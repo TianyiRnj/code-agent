@@ -7,7 +7,7 @@ import logging
 import sys
 from pathlib import Path
 
-from agent.config import Mode, TaskConfig
+from agent.config import Mode, TaskConfig, load_env_file
 
 
 def main() -> None:
@@ -40,6 +40,8 @@ def main() -> None:
         level=getattr(logging, args.log_level),
         format="%(levelname)s  %(name)s  %(message)s",
     )
+
+    load_env_file()
 
     config_path = Path(args.config)
     config = TaskConfig.from_yaml(config_path) if config_path.exists() else TaskConfig()

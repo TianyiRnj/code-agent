@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 
-from agent.config import Mode, TaskConfig, _preset
+from agent.config import Mode, TaskConfig, _preset, load_env_file
 
 
 def test_default_mode_is_balanced() -> None:
@@ -86,3 +89,43 @@ def test_from_yaml_goal_overrides_preset(tmp_path: pytest.TempdirFactory) -> Non
     config = TaskConfig.from_yaml(f)  # type: ignore[arg-type]
     assert config.goal == "deploy to prod"
     assert config.mode == Mode.FULL_AUTO
+
+
+def test_effective_model_prefers_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-from-env")
+    assert TaskConfig(model="claude-from-config").effective_model() == "claude-from-env"
+
+
+def test_effective_model_falls_back_to_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    assert TaskConfig(model="claude-from-config").effective_model() == "claude-from-config"
+
+
+def test_load_env_file_sets_missing_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "# local env\n"
+        "ANTHROPIC_API_KEY='test-key'\n"
+        'ANTHROPIC_MODEL="claude-from-dotenv"\n'
+    )
+
+    load_env_file(env_file)
+
+    assert os.environ["ANTHROPIC_API_KEY"] == "test-key"
+    assert os.environ["ANTHROPIC_MODEL"] == "claude-from-dotenv"
+
+
+def test_load_env_file_does_not_override_existing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_MODEL", "already-set")
+    env_file = tmp_path / ".env"
+    env_file.write_text("ANTHROPIC_MODEL=from-dotenv\n")
+
+    load_env_file(env_file)
+
+    assert os.environ["ANTHROPIC_MODEL"] == "already-set"

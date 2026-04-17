@@ -1,6 +1,9 @@
 project: ./
 goal: ""
-model: claude-opus-4-7
+
+# The runtime model is loaded from ANTHROPIC_MODEL in .env.
+# Uncomment only if you want a config fallback when ANTHROPIC_MODEL is unset.
+# model: claude-opus-4-7
 
 # safe | balanced | full-auto  (default: balanced)
 # Each mode provides preset defaults; fields below override the preset.

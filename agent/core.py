@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 import anthropic
 from anthropic.types import Message, TextBlock, ToolParam, ToolUseBlock
 
-from agent.config import TaskConfig
+from agent.config import TaskConfig, load_env_file
 from agent.memory import MemoryStore
 from agent.planner import Planner, Step
 from agent.policy import PolicyGuard
@@ -20,14 +21,16 @@ logger = logging.getLogger(__name__)
 
 # Maximum tokens to request per API call.
 _MAX_TOKENS = 8192
+_ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 
 
 class Agent:
     """Orchestrates planning, API calls, tool dispatch, and self-correction."""
 
     def __init__(self, config: TaskConfig, memory_path: str = ".agent_state.json") -> None:
+        load_env_file()
         self.config = config
-        self._client = anthropic.Anthropic()
+        self._client = _anthropic_client_from_env()
         self._guard = PolicyGuard(config)
         self._planner = Planner()
         self._memory = MemoryStore(memory_path)
@@ -117,7 +120,7 @@ class Agent:
     def _call_api(self, system: str) -> Message:
         """Make a single call to the Claude messages API with prompt caching."""
         return self._client.messages.create(
-            model=self.config.model,
+            model=self.config.effective_model(),
             max_tokens=_MAX_TOKENS,
             system=[
                 {
@@ -223,3 +226,11 @@ def _tool_params(tools: list[Any]) -> list[ToolParam]:
         )
         for td in tools
     ]
+
+
+def _anthropic_client_from_env() -> anthropic.Anthropic:
+    """Create an Anthropic client using ANTHROPIC_API_KEY from the environment."""
+    api_key = os.environ.get(_ANTHROPIC_API_KEY_ENV)
+    if api_key:
+        return anthropic.Anthropic(api_key=api_key)
+    return anthropic.Anthropic()
